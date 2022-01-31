@@ -1,5 +1,6 @@
 import os, time
 import ftplib
+import psycopg2
 from ftplib import FTP
 
 line = "*"*40
@@ -27,7 +28,10 @@ for idx, line in enumerate( data ):
     col = line.split()
     size = col[4]
     date = ' '.join(line.split()[5:8])
-    filename = col[8]
+    filename = " ".join( col[8: ] )
+    
+    date = date.split( " " )
+    date = " ".join( [ date[2], date[0], date[1] ] )
     
     #print( f"[{idx:02}] {line}" )
     print( f"[{idx:02}] size = {size}, date = {date}, filename = {filename}" )
@@ -38,22 +42,74 @@ for idx, line in enumerate( data ):
 pass
 
 if file_infos :
-    local_dir = "data"
-    if not os.path.exists( local_dir ):
-        os.makedirs( local_dir )
-        print( f"directory {local_dir} was created." )
+    if True : 
+        print( line2 )
+        print( "Change local folder." )
+        local_dir = "data"
+        if not os.path.exists( local_dir ):
+            os.makedirs( local_dir )
+            print( f"directory {local_dir} was created." )
+        pass
+        os.chdir( "data" )
+    pass
+    
+    db_name = "landbigdata"
+    db_user = "landbigdata"
+    db_pass = "landbigdata"
+    print( line2 )
+    print( "Connecting database ... " )
+    conn = psycopg2.connect( f"dbname={db_name} user={db_user} password={db_pass}" )
+    print( "Done. connecting database." )
+    
+    with conn.cursor() as cursor : 
+        cursor.execute("SELECT version();")
+        # Fetch result
+        record = cursor.fetchone()
+        
+        print( f"version = {record}" )
+    pass
+    
+    with conn.cursor() as cursor : 
+        for file_info in file_infos : 
+            filename = file_info["filename"]
+            sql = f"""SELECT data_id, org_file, dest_loc, data_src, file_fmt, file_usage
+                , TO_CHAR( get_date, 'YYYY Mon DD HH:MI:SS') get_date
+                , TO_CHAR( upload_date, 'YYYY Mon DD HH:MI:SS' ) upload_date
+                , TO_CHAR( model_apply_date, 'YYYY Mon DD HH:MI:SS' ) model_apply_date
+                , model_apply_user_id
+                from meta_data
+                where org_file = '{filename}'
+                LIMIT 1
+            """
+            cursor.execute( sql )
+            # Fetch result
+            rows = cursor.fetchall();
+            print( f"row len = {len(rows)} filename = {filename}" )
+            
+            for row in rows : 
+                print( f"row = {row}" )
+            pass
+        
+            if len( rows ) == 0 :
+                org_file = filename
+                dest_loc = f"data/{filename}"
+                file_format = filename.split( "." )[-1]
+                data_src = "KLIS" if filename.contains( "KLIS" ) else "LH"
+                
+            pass
+        pass
     pass
 
-    print( "Change local folder." )
-    os.chdir( "data" ) 
-
-    file_info = file_infos[0]
-    filename = file_info["filename"]
-    
-    with open( f'{filename}', 'wb') as fp: 
-        print( f"Downloading file {filename} ..." )
-        ftp.retrbinary( f'RETR {filename}', fp.write)
-        print( f"Done. downloading file {filename} ..." )
+    if False : 
+        for file_info in file_infos : 
+            filename = file_info["filename"]
+            
+            with open( f'{filename}', 'wb') as fp: 
+                print( f"Downloading file {filename} ..." )
+                ftp.retrbinary( f'RETR {filename}', fp.write)
+                print( f"Done. downloading file {filename} ..." )
+            pass
+        pass
     pass
 pass
     
