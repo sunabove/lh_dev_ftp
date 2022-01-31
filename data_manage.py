@@ -1,6 +1,4 @@
-import os, time
-import ftplib
-import psycopg2
+import os, time, uuid, ftplib, psycopg2
 from ftplib import FTP
 
 line = "*"*40
@@ -72,16 +70,16 @@ if file_infos :
     with conn.cursor() as cursor : 
         for file_info in file_infos : 
             filename = file_info["filename"]
-            sql = f"""SELECT data_id, org_file, dest_loc, data_src, file_fmt, file_usage
+            sql = """SELECT data_id, org_file, dest_loc, data_src, file_fmt, file_usage
                 , TO_CHAR( get_date, 'YYYY Mon DD HH:MI:SS') get_date
                 , TO_CHAR( upload_date, 'YYYY Mon DD HH:MI:SS' ) upload_date
                 , TO_CHAR( model_apply_date, 'YYYY Mon DD HH:MI:SS' ) model_apply_date
                 , model_apply_user_id
                 from meta_data
-                where org_file = '{filename}'
+                where org_file = %s
                 LIMIT 1
             """
-            cursor.execute( sql )
+            cursor.execute( sql, [filename] )
             # Fetch result
             rows = cursor.fetchall();
             print( f"row len = {len(rows)} filename = {filename}" )
@@ -91,11 +89,18 @@ if file_infos :
             pass
         
             if len( rows ) == 0 :
+                data_id = uuid.uuid4().hex
                 org_file = filename
                 dest_loc = f"data/{filename}"
+                data_src = "KLIS" if "KLIS" in filename else "LH"
                 file_format = filename.split( "." )[-1]
-                data_src = "KLIS" if filename.contains( "KLIS" ) else "LH"
+                file_usage = "모형" if "모형" in filename else "데이터"
+                model_apply_user_id = "admin"
                 
+                sql = f"""INSERT INTO meta_data
+                (data_id, org_file, dest_loc, data_src, file_fmt, file_usage, get_date, upload_date, model_apply_user_id )
+                VALUES( '', '')
+                """ 
             pass
         pass
     pass
